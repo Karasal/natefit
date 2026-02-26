@@ -1,0 +1,46 @@
+# NATEFIT Progress
+
+## Current Status: Phase 1-6 Complete (Foundation + Core Engine)
+
+## What's Done
+- [x] Project scaffold (Next.js 16, TypeScript, Tailwind v4)
+- [x] Design system (dark athletic aesthetic, globals.css, all UI components)
+- [x] Database schema (profiles, orgs, clients, scans, measurements, goals)
+- [x] Supabase integration (client, server, middleware, RLS policies)
+- [x] Auth flow (login, signup with role selection, magic link, callback)
+- [x] Middleware (route protection, auth redirect)
+- [x] UI component library (Button, Card, Input, Select, Badge, Modal, MetricCard, DataTable)
+- [x] Scan engine core algorithms:
+  - circumference-calculator.ts (ellipse model + Ramanujan approximation)
+  - body-composition.ts (Navy + CUN-BAE ensemble)
+  - silhouette-analyzer.ts (pixel width extraction from segmentation mask)
+  - calibrator.ts (height-based pixel scale)
+  - pose-validator.ts (front/side pose validation gates)
+  - confidence-scorer.ts (scan quality scoring)
+  - constants.ts (BlazePose landmarks, correction factors)
+- [x] Hooks (useCamera, usePoseDetection, useBodySegmentation, useScanProcessor)
+- [x] Scan flow UI (ScanFlow state machine, CameraCapture, CalibrationStep, ProcessingView, ScanResults)
+- [x] Dashboard layout + sidebar
+- [x] Portal layout + bottom nav
+- [x] Dashboard pages (overview, clients list, add client, client detail, scan page)
+- [x] Portal pages (home, scan, history)
+- [x] Landing page (hero, how-it-works, features, comparison table, CTA)
+- [x] Pricing page (3 tiers)
+- [x] Measurement components (MeasurementTable, BodyFatGauge, TrendChart, BodyMap)
+- [x] Launcher script
+
+## What's Next (V1 Polish)
+- [ ] Connect Supabase project (add env vars)
+- [ ] Run database migration
+- [ ] Create GitHub repo + connect Vercel
+- [ ] Client scan detail page (/dashboard/clients/[id]/scans/[sid])
+- [ ] Scan comparison (side-by-side)
+- [ ] 3D avatar viewer (parametric mesh + React Three Fiber)
+- [ ] Goals management UI
+- [ ] PDF report generation
+- [ ] Settings page (profile, billing placeholder)
+- [ ] Client invite flow (email sending via Resend)
+- [ ] Public scan page (/scan/[token])
+- [ ] Cross-browser testing (iOS Safari + Android Chrome)
+- [ ] Correction factor tuning (real subject validation)
+- [ ] Service Worker for ML model caching
