@@ -1,13 +1,12 @@
 -- ============================================================
 -- NATEFIT Body Scanner — Database Schema
 -- ============================================================
-
--- Enable UUID extension
-create extension if not exists "uuid-ossp";
+-- Tables first, then RLS policies (to avoid forward-reference issues)
 
 -- ============================================================
--- Profiles
+-- 1. Create all tables
 -- ============================================================
+
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text not null,
@@ -21,25 +20,8 @@ create table public.profiles (
   updated_at timestamptz default now()
 );
 
-alter table public.profiles enable row level security;
-
-create policy "Users can read own profile"
-  on public.profiles for select
-  using (auth.uid() = id);
-
-create policy "Users can update own profile"
-  on public.profiles for update
-  using (auth.uid() = id);
-
-create policy "Users can insert own profile"
-  on public.profiles for insert
-  with check (auth.uid() = id);
-
--- ============================================================
--- Organizations
--- ============================================================
 create table public.organizations (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   name text not null,
   slug text unique not null,
   owner_id uuid references public.profiles(id) on delete set null,
@@ -50,19 +32,8 @@ create table public.organizations (
   created_at timestamptz default now()
 );
 
-alter table public.organizations enable row level security;
-
-create policy "Org members can read their org"
-  on public.organizations for select
-  using (
-    id in (select org_id from public.org_members where user_id = auth.uid())
-  );
-
--- ============================================================
--- Org Members
--- ============================================================
 create table public.org_members (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   org_id uuid references public.organizations(id) on delete cascade,
   user_id uuid references public.profiles(id) on delete cascade,
   role text not null check (role in ('owner', 'trainer', 'viewer')),
@@ -70,26 +41,8 @@ create table public.org_members (
   unique (org_id, user_id)
 );
 
-alter table public.org_members enable row level security;
-
-create policy "Org members can read their memberships"
-  on public.org_members for select
-  using (user_id = auth.uid());
-
-create policy "Org owners can manage members"
-  on public.org_members for all
-  using (
-    org_id in (
-      select org_id from public.org_members
-      where user_id = auth.uid() and role = 'owner'
-    )
-  );
-
--- ============================================================
--- Clients
--- ============================================================
 create table public.clients (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   org_id uuid references public.organizations(id) on delete cascade,
   user_id uuid references public.profiles(id) on delete set null,
   email text not null,
@@ -102,29 +55,8 @@ create table public.clients (
   updated_at timestamptz default now()
 );
 
-alter table public.clients enable row level security;
-
-create policy "Trainers can read their org clients"
-  on public.clients for select
-  using (
-    org_id in (select org_id from public.org_members where user_id = auth.uid())
-  );
-
-create policy "Trainers can manage their org clients"
-  on public.clients for all
-  using (
-    org_id in (select org_id from public.org_members where user_id = auth.uid())
-  );
-
-create policy "Clients can read own record"
-  on public.clients for select
-  using (user_id = auth.uid());
-
--- ============================================================
--- Scans
--- ============================================================
 create table public.scans (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   client_id uuid references public.clients(id) on delete cascade,
   org_id uuid references public.organizations(id) on delete cascade,
   performed_by uuid references public.profiles(id) on delete set null,
@@ -139,31 +71,8 @@ create table public.scans (
   completed_at timestamptz
 );
 
-alter table public.scans enable row level security;
-
-create policy "Trainers can read their org scans"
-  on public.scans for select
-  using (
-    org_id in (select org_id from public.org_members where user_id = auth.uid())
-  );
-
-create policy "Trainers can manage their org scans"
-  on public.scans for all
-  using (
-    org_id in (select org_id from public.org_members where user_id = auth.uid())
-  );
-
-create policy "Clients can read own scans"
-  on public.scans for select
-  using (
-    client_id in (select id from public.clients where user_id = auth.uid())
-  );
-
--- ============================================================
--- Measurements
--- ============================================================
 create table public.measurements (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   scan_id uuid references public.scans(id) on delete cascade,
   client_id uuid references public.clients(id) on delete cascade,
   neck_cm numeric,
@@ -191,37 +100,8 @@ create table public.measurements (
   created_at timestamptz default now()
 );
 
-alter table public.measurements enable row level security;
-
-create policy "Trainers can read their org measurements"
-  on public.measurements for select
-  using (
-    client_id in (
-      select id from public.clients
-      where org_id in (select org_id from public.org_members where user_id = auth.uid())
-    )
-  );
-
-create policy "Trainers can insert measurements"
-  on public.measurements for insert
-  with check (
-    client_id in (
-      select id from public.clients
-      where org_id in (select org_id from public.org_members where user_id = auth.uid())
-    )
-  );
-
-create policy "Clients can read own measurements"
-  on public.measurements for select
-  using (
-    client_id in (select id from public.clients where user_id = auth.uid())
-  );
-
--- ============================================================
--- Goals
--- ============================================================
 create table public.goals (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   client_id uuid references public.clients(id) on delete cascade,
   org_id uuid references public.organizations(id) on delete cascade,
   metric text not null,
@@ -232,25 +112,8 @@ create table public.goals (
   created_at timestamptz default now()
 );
 
-alter table public.goals enable row level security;
-
-create policy "Trainers can manage goals"
-  on public.goals for all
-  using (
-    org_id in (select org_id from public.org_members where user_id = auth.uid())
-  );
-
-create policy "Clients can read own goals"
-  on public.goals for select
-  using (
-    client_id in (select id from public.clients where user_id = auth.uid())
-  );
-
--- ============================================================
--- Scan Comparisons
--- ============================================================
 create table public.scan_comparisons (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   client_id uuid references public.clients(id) on delete cascade,
   scan_a_id uuid references public.scans(id) on delete cascade,
   scan_b_id uuid references public.scans(id) on delete cascade,
@@ -259,19 +122,104 @@ create table public.scan_comparisons (
   created_at timestamptz default now()
 );
 
+-- ============================================================
+-- 2. Enable RLS on all tables
+-- ============================================================
+
+alter table public.profiles enable row level security;
+alter table public.organizations enable row level security;
+alter table public.org_members enable row level security;
+alter table public.clients enable row level security;
+alter table public.scans enable row level security;
+alter table public.measurements enable row level security;
+alter table public.goals enable row level security;
 alter table public.scan_comparisons enable row level security;
 
+-- ============================================================
+-- 3. RLS Policies (all tables exist now)
+-- ============================================================
+
+-- Profiles
+create policy "Users can read own profile"
+  on public.profiles for select using (auth.uid() = id);
+create policy "Users can update own profile"
+  on public.profiles for update using (auth.uid() = id);
+create policy "Users can insert own profile"
+  on public.profiles for insert with check (auth.uid() = id);
+
+-- Organizations
+create policy "Org members can read their org"
+  on public.organizations for select
+  using (id in (select org_id from public.org_members where user_id = auth.uid()));
+create policy "Org owners can insert orgs"
+  on public.organizations for insert
+  with check (owner_id = auth.uid());
+
+-- Org Members
+create policy "Org members can read their memberships"
+  on public.org_members for select using (user_id = auth.uid());
+create policy "Org owners can manage members"
+  on public.org_members for all
+  using (org_id in (select org_id from public.org_members where user_id = auth.uid() and role = 'owner'));
+create policy "Users can insert own membership"
+  on public.org_members for insert with check (user_id = auth.uid());
+
+-- Clients
+create policy "Trainers can read their org clients"
+  on public.clients for select
+  using (org_id in (select org_id from public.org_members where user_id = auth.uid()));
+create policy "Trainers can manage their org clients"
+  on public.clients for insert
+  with check (org_id in (select org_id from public.org_members where user_id = auth.uid()));
+create policy "Trainers can update their org clients"
+  on public.clients for update
+  using (org_id in (select org_id from public.org_members where user_id = auth.uid()));
+create policy "Trainers can delete their org clients"
+  on public.clients for delete
+  using (org_id in (select org_id from public.org_members where user_id = auth.uid()));
+create policy "Clients can read own record"
+  on public.clients for select using (user_id = auth.uid());
+
+-- Scans
+create policy "Trainers can read their org scans"
+  on public.scans for select
+  using (org_id in (select org_id from public.org_members where user_id = auth.uid()));
+create policy "Trainers can insert org scans"
+  on public.scans for insert
+  with check (org_id in (select org_id from public.org_members where user_id = auth.uid()));
+create policy "Trainers can update org scans"
+  on public.scans for update
+  using (org_id in (select org_id from public.org_members where user_id = auth.uid()));
+create policy "Clients can read own scans"
+  on public.scans for select
+  using (client_id in (select id from public.clients where user_id = auth.uid()));
+
+-- Measurements
+create policy "Trainers can read their org measurements"
+  on public.measurements for select
+  using (client_id in (select id from public.clients where org_id in (select org_id from public.org_members where user_id = auth.uid())));
+create policy "Trainers can insert measurements"
+  on public.measurements for insert
+  with check (client_id in (select id from public.clients where org_id in (select org_id from public.org_members where user_id = auth.uid())));
+create policy "Clients can read own measurements"
+  on public.measurements for select
+  using (client_id in (select id from public.clients where user_id = auth.uid()));
+
+-- Goals
+create policy "Trainers can manage goals"
+  on public.goals for all
+  using (org_id in (select org_id from public.org_members where user_id = auth.uid()));
+create policy "Clients can read own goals"
+  on public.goals for select
+  using (client_id in (select id from public.clients where user_id = auth.uid()));
+
+-- Scan Comparisons
 create policy "Trainers can manage comparisons"
   on public.scan_comparisons for all
-  using (
-    client_id in (
-      select id from public.clients
-      where org_id in (select org_id from public.org_members where user_id = auth.uid())
-    )
-  );
+  using (client_id in (select id from public.clients where org_id in (select org_id from public.org_members where user_id = auth.uid())));
 
 -- ============================================================
--- Indexes
+-- 4. Indexes
 -- ============================================================
 create index idx_clients_org_id on public.clients(org_id);
 create index idx_clients_user_id on public.clients(user_id);
@@ -284,7 +232,7 @@ create index idx_org_members_user_id on public.org_members(user_id);
 create index idx_org_members_org_id on public.org_members(org_id);
 
 -- ============================================================
--- Storage Buckets
+-- 5. Storage Buckets
 -- ============================================================
 insert into storage.buckets (id, name, public) values ('scan-images', 'scan-images', false);
 insert into storage.buckets (id, name, public) values ('scan-processed', 'scan-processed', false);
@@ -296,7 +244,6 @@ insert into storage.buckets (id, name, public) values ('profile-images', 'profil
 create policy "Authenticated users can upload scan images"
   on storage.objects for insert
   with check (bucket_id = 'scan-images' and auth.role() = 'authenticated');
-
 create policy "Users can read scan images from their org"
   on storage.objects for select
   using (bucket_id = 'scan-images' and auth.role() = 'authenticated');
