@@ -33,14 +33,20 @@
 - [x] Connect Supabase project (add env vars)
 - [ ] Run database migration
 - [x] Create GitHub repo + connect Vercel (https://natefit-liard.vercel.app)
+- [x] Fix magic link login → dashboard errors (406/500/404)
+  - AuthProvider: .maybeSingle() + auto-create profile for magic link users
+  - Null guard on org_members queries
+  - Settings stub page (no more 404)
+  - Org owner RLS policy fix
 - [ ] Client scan detail page (/dashboard/clients/[id]/scans/[sid])
 - [ ] Scan comparison (side-by-side)
 - [ ] 3D avatar viewer (parametric mesh + React Three Fiber)
 - [ ] Goals management UI
 - [ ] PDF report generation
-- [ ] Settings page (profile, billing placeholder)
+- [ ] Settings page (profile, billing placeholder) — stub exists, needs real implementation
 - [ ] Client invite flow (email sending via Resend)
 - [ ] Public scan page (/scan/[token])
 - [ ] Cross-browser testing (iOS Safari + Android Chrome)
 - [ ] Correction factor tuning (real subject validation)
 - [ ] Service Worker for ML model caching
+- [ ] Reset OTP rate limit back to 30 (Supabase Management API)
