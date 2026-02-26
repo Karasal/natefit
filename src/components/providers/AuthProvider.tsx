@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { createClient } from '@/lib/supabase/client';
 import type { Profile } from '@/lib/types';
 import type { User } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
@@ -19,6 +20,33 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
 });
 
+async function fetchOrCreateProfile(
+  supabase: SupabaseClient,
+  user: User
+): Promise<Profile | null> {
+  const { data } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (data) return data;
+
+  // Auto-create profile for magic link users (no signup flow = no profile row)
+  const { data: newProfile } = await supabase
+    .from('profiles')
+    .insert({
+      id: user.id,
+      email: user.email!,
+      full_name: user.user_metadata?.full_name || user.email!.split('@')[0],
+      role: 'trainer',
+    })
+    .select()
+    .single();
+
+  return newProfile;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -31,12 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(user);
 
       if (user) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-        setProfile(data);
+        setProfile(await fetchOrCreateProfile(supabase, user));
       }
 
       setLoading(false);
@@ -49,12 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          const { data } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-          setProfile(data);
+          setProfile(await fetchOrCreateProfile(supabase, session.user));
         } else {
           setProfile(null);
         }

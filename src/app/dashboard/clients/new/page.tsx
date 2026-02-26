@@ -37,11 +37,17 @@ export default function NewClientPage() {
 
     setLoading(true);
 
+    if (!profile) {
+      toast('Profile not loaded', 'error');
+      setLoading(false);
+      return;
+    }
+
     // Get user's org
     const { data: orgMember } = await supabase
       .from('org_members')
       .select('org_id')
-      .eq('user_id', profile?.id)
+      .eq('user_id', profile.id)
       .single();
 
     if (!orgMember) {
