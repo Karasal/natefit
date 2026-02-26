@@ -151,6 +151,9 @@ create policy "Users can insert own profile"
 create policy "Org members can read their org"
   on public.organizations for select
   using (id in (select org_id from public.org_members where user_id = auth.uid()));
+create policy "Org owners can read their org"
+  on public.organizations for select
+  using (owner_id = auth.uid());
 create policy "Org owners can insert orgs"
   on public.organizations for insert
   with check (owner_id = auth.uid());

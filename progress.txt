@@ -30,9 +30,9 @@
 - [x] Launcher script
 
 ## What's Next (V1 Polish)
-- [ ] Connect Supabase project (add env vars)
+- [x] Connect Supabase project (add env vars)
 - [ ] Run database migration
-- [ ] Create GitHub repo + connect Vercel
+- [x] Create GitHub repo + connect Vercel (https://natefit-liard.vercel.app)
 - [ ] Client scan detail page (/dashboard/clients/[id]/scans/[sid])
 - [ ] Scan comparison (side-by-side)
 - [ ] 3D avatar viewer (parametric mesh + React Three Fiber)
