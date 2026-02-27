@@ -1,28 +1,15 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import type {
-  CalibrationData,
-  PoseKeypoints,
-  ScanResult,
-  MeasurementRegion,
-  RegionWidths,
-} from '@/lib/types';
-import { analyzeSilhouette, pixelsToCm } from '@/lib/scan/silhouette-analyzer';
-import { calculateAllCircumferences, calculateOverallConfidence } from '@/lib/scan/circumference-calculator';
-import { calculateBodyComposition } from '@/lib/scan/body-composition';
-import { scoreScanConfidence } from '@/lib/scan/confidence-scorer';
-import { useBodySegmentation } from './useBodySegmentation';
+import type { CalibrationData, ScanResult } from '@/lib/types';
 
 interface UseScanProcessorReturn {
   isProcessing: boolean;
   progress: number;
   error: string | null;
   process: (
-    frontImage: ImageData,
-    sideImage: ImageData,
-    frontKeypoints: PoseKeypoints,
-    sideKeypoints: PoseKeypoints,
+    frontImage: Blob,
+    sideImage: Blob,
     calibration: CalibrationData
   ) => Promise<ScanResult | null>;
 }
@@ -31,114 +18,71 @@ export function useScanProcessor(): UseScanProcessorReturn {
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const { segment } = useBodySegmentation();
 
   const process = useCallback(
     async (
-      frontImage: ImageData,
-      sideImage: ImageData,
-      frontKeypoints: PoseKeypoints,
-      sideKeypoints: PoseKeypoints,
+      frontImage: Blob,
+      sideImage: Blob,
       calibration: CalibrationData
     ): Promise<ScanResult | null> => {
       setIsProcessing(true);
       setProgress(0);
       setError(null);
 
+      // Simulate progress while waiting for server response
+      const progressSteps = [
+        { target: 20, delay: 300 },
+        { target: 40, delay: 800 },
+        { target: 60, delay: 1500 },
+        { target: 75, delay: 2500 },
+        { target: 85, delay: 4000 },
+        { target: 90, delay: 6000 },
+      ];
+
+      let stepIndex = 0;
+      const interval = setInterval(() => {
+        if (stepIndex < progressSteps.length) {
+          setProgress(progressSteps[stepIndex].target);
+          stepIndex++;
+        }
+      }, 1200);
+
       try {
-        // Step 1: Body segmentation (front)
-        setProgress(10);
-        const frontMask = await segment(frontImage);
-        if (!frontMask) throw new Error('Front body segmentation failed');
+        const formData = new FormData();
+        formData.append('front_image', frontImage, 'front.jpg');
+        formData.append('side_image', sideImage, 'side.jpg');
+        formData.append('height_cm', String(calibration.height_cm));
+        formData.append('weight_kg', String(calibration.weight_kg));
+        formData.append('age', String(calibration.age));
+        formData.append('sex', calibration.sex);
 
-        // Step 2: Body segmentation (side)
-        setProgress(30);
-        const sideMask = await segment(sideImage);
-        if (!sideMask) throw new Error('Side body segmentation failed');
+        const response = await fetch('/api/scan/process', {
+          method: 'POST',
+          body: formData,
+        });
 
-        // Step 3: Silhouette analysis
-        setProgress(50);
-        const frontWidths = analyzeSilhouette(
-          frontMask, frontImage.width, frontImage.height, frontKeypoints
-        );
-        const sideWidths = analyzeSilhouette(
-          sideMask, sideImage.width, sideImage.height, sideKeypoints
-        );
+        clearInterval(interval);
 
-        // Step 4: Map frontal + sagittal widths per region
-        setProgress(65);
-        const regionWidths = new Map<MeasurementRegion, RegionWidths>();
-
-        for (const fw of frontWidths) {
-          const sw = sideWidths.find((s) => s.region === fw.region);
-          if (sw) {
-            regionWidths.set(fw.region, {
-              frontal_cm: pixelsToCm(fw.width_pixels, calibration.pixels_per_cm),
-              sagittal_cm: pixelsToCm(sw.width_pixels, calibration.pixels_per_cm),
-            });
-          }
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({ error: 'Scan processing failed' }));
+          throw new Error(body.error || `Server error: ${response.status}`);
         }
 
-        // Step 5: Calculate circumferences
-        setProgress(80);
-        const circumferences = calculateAllCircumferences(regionWidths);
-
-        // Step 6: Body composition
-        setProgress(90);
-        const waistResult = circumferences.find((c) => c.region === 'waist');
-        const neckResult = circumferences.find((c) => c.region === 'neck');
-        const hipsResult = circumferences.find((c) => c.region === 'hips');
-
-        let composition;
-        if (waistResult && neckResult && hipsResult) {
-          composition = calculateBodyComposition(
-            calibration.sex,
-            calibration.age,
-            calibration.height_cm,
-            calibration.weight_kg,
-            waistResult.circumference_cm,
-            neckResult.circumference_cm,
-            hipsResult.circumference_cm
-          );
-        } else {
-          // Fallback: use BMI-only composition
-          const bmi = calibration.weight_kg / ((calibration.height_cm / 100) ** 2);
-          composition = calculateBodyComposition(
-            calibration.sex,
-            calibration.age,
-            calibration.height_cm,
-            calibration.weight_kg,
-            calibration.height_cm * 0.44, // Average waist-to-height ratio
-            calibration.height_cm * 0.21, // Average neck-to-height ratio
-            calibration.height_cm * 0.52  // Average hip-to-height ratio
-          );
-        }
-
-        // Step 7: Confidence scoring
         setProgress(95);
-        const confidence = scoreScanConfidence(
-          circumferences,
-          frontKeypoints,
-          sideKeypoints,
-          calibration
-        );
+        const result: ScanResult = await response.json();
 
         setProgress(100);
         setIsProcessing(false);
-
-        return {
-          circumferences,
-          composition,
-          confidence_score: confidence,
-        };
+        return result;
       } catch (err) {
+        clearInterval(interval);
         const message = err instanceof Error ? err.message : 'Scan processing failed';
         setError(message);
         setIsProcessing(false);
         return null;
       }
     },
-    [segment]
+    []
   );
 
   return { isProcessing, progress, error, process };

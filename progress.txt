@@ -1,52 +1,106 @@
 # NATEFIT Progress
 
-## Current Status: Phase 1-6 Complete (Foundation + Core Engine)
+## Current Status: SMPL + LiDAR Architecture Implemented (Phases 1-4)
+
+## Architecture
+```
+iOS App (Swift/ARKit)     Web App (Next.js)
+  RGB + LiDAR depth         RGB only
+         \                    /
+          \                  /
+    GPU Backend (Python/FastAPI on Modal)
+    HMR 2.0 → SMPL → Measurements → Body Comp
+                  |
+            Supabase (unchanged)
+```
 
 ## What's Done
+
+### Foundation (unchanged)
 - [x] Project scaffold (Next.js 16, TypeScript, Tailwind v4)
 - [x] Design system (dark athletic aesthetic, globals.css, all UI components)
 - [x] Database schema (profiles, orgs, clients, scans, measurements, goals)
 - [x] Supabase integration (client, server, middleware, RLS policies)
-- [x] Auth flow (login, signup with role selection, magic link, callback)
-- [x] Middleware (route protection, auth redirect)
-- [x] UI component library (Button, Card, Input, Select, Badge, Modal, MetricCard, DataTable)
-- [x] Scan engine core algorithms:
-  - circumference-calculator.ts (ellipse model + Ramanujan approximation)
-  - body-composition.ts (Navy + CUN-BAE ensemble)
-  - silhouette-analyzer.ts (pixel width extraction from segmentation mask)
-  - calibrator.ts (height-based pixel scale)
-  - pose-validator.ts (front/side pose validation gates)
-  - confidence-scorer.ts (scan quality scoring)
-  - constants.ts (BlazePose landmarks, correction factors)
-- [x] Hooks (useCamera, usePoseDetection, useBodySegmentation, useScanProcessor)
-- [x] Scan flow UI (ScanFlow state machine, CameraCapture, CalibrationStep, ProcessingView, ScanResults)
-- [x] Dashboard layout + sidebar
-- [x] Portal layout + bottom nav
-- [x] Dashboard pages (overview, clients list, add client, client detail, scan page)
-- [x] Portal pages (home, scan, history)
-- [x] Landing page (hero, how-it-works, features, comparison table, CTA)
-- [x] Pricing page (3 tiers)
-- [x] Measurement components (MeasurementTable, BodyFatGauge, TrendChart, BodyMap)
-- [x] Launcher script
+- [x] Auth flow (login, signup, magic link, callback)
+- [x] Dashboard + Portal layouts and pages
+- [x] Landing page + Pricing page
+- [x] Measurement visualization components
 
-## What's Next (V1 Polish)
-- [x] Connect Supabase project (add env vars)
-- [ ] Run database migration
-- [x] Create GitHub repo + connect Vercel (https://natefit-liard.vercel.app)
-- [x] Fix magic link login → dashboard errors (406/500/404)
-  - AuthProvider: .maybeSingle() + auto-create profile for magic link users
-  - Null guard on org_members queries
-  - Settings stub page (no more 404)
-  - Org owner RLS policy fix
+### Phase 1: GPU Backend (backend/)
+- [x] main.py — FastAPI app, POST /api/scan, GET /health, CORS
+- [x] pipeline.py — Full orchestration: HMR → optimize → measure → compose
+- [x] hmr_inference.py — HMR 2.0 wrapper (ViT backbone → SMPL params)
+- [x] smpl_optimizer.py — Multi-view beta optimization + LiDAR depth loss
+- [x] measurement_extractor.py — SMPL-Anthropometry (mesh slice → circumferences)
+- [x] body_composition.py — MLP + Navy/CUN-BAE fallback
+- [x] depth_processor.py — LiDAR depth map → point cloud → scale
+- [x] modal_deploy.py — Modal serverless GPU (A100, scales to zero)
+- [x] models.py — Pydantic + dataclass models
+- [x] requirements.txt + README.md
+
+### Phase 2: Web Integration
+- [x] Updated types.ts — mesh_vertices, mesh_faces, scan_tier, smpl_betas, body_fat_smpl
+- [x] Created src/app/api/scan/process/route.ts — Proxy to GPU backend, auth-gated
+- [x] Rewrote useScanProcessor.ts — Server-side processing, progress simulation
+- [x] Updated ScanFlow.tsx — Simplified capture (no client-side calibration)
+- [x] Updated ProcessingView.tsx — New stage labels (Uploading → AI → Fitting → Computing)
+- [x] Updated ScanResults.tsx — Scan tier badge, SMPL body fat, 3D avatar integration
+- [x] Created migration 003_add_mesh_data.sql
+
+### Phase 3: 3D Avatar Viewer
+- [x] src/components/3d/AvatarViewer.tsx — R3F mesh renderer, body region colors, measurement rings
+- [x] src/components/3d/MeshComparison.tsx — Side-by-side with synced controls + diff visualization
+
+### Phase 4: iOS LiDAR App (ios/NateFit/)
+- [x] NateFitApp.swift + ContentView.swift — Entry point + navigation
+- [x] Views: LoginView, ClientSelectView, ScanCaptureView, PoseGuideOverlay, ResultsView
+- [x] Services: ARCaptureService (RGB + depth extraction), APIClient, AuthService
+- [x] Models: ScanData, ScanResult (Codable)
+- [x] Info.plist + README.md
+
+### Build Status
+- [x] TypeScript: 0 errors
+- [x] Next.js build: passes, /api/scan/process route registered
+- [x] New route visible in build output
+
+## What's Next
+
+### Before Launch
+- [ ] Download + configure model weights (HMR 2.0, SMPL, MLP)
+- [ ] Deploy backend to Modal (`modal deploy modal_deploy.py`)
+- [ ] Set SCAN_API_URL env var in Vercel
+- [ ] Run database migration 003
+- [ ] Xcode project setup for iOS app
+- [ ] TestFlight distribution
+
+### Phase 5: Validation
+- [ ] Recruit 10-20 test subjects (diverse body types)
+- [ ] Compare NATEFIT measurements vs tape measurements
+- [ ] Target: <2cm MAE (LiDAR), <3cm MAE (photo)
+- [ ] Tune correction factors if systematic bias found
+- [ ] Train body composition MLP on paired SMPL-DEXA data
+
+### Remaining V1 Polish
 - [ ] Client scan detail page (/dashboard/clients/[id]/scans/[sid])
-- [ ] Scan comparison (side-by-side)
-- [ ] 3D avatar viewer (parametric mesh + React Three Fiber)
 - [ ] Goals management UI
 - [ ] PDF report generation
-- [ ] Settings page (profile, billing placeholder) — stub exists, needs real implementation
-- [ ] Client invite flow (email sending via Resend)
+- [ ] Settings page (real implementation)
+- [ ] Client invite flow (Resend)
 - [ ] Public scan page (/scan/[token])
-- [ ] Cross-browser testing (iOS Safari + Android Chrome)
-- [ ] Correction factor tuning (real subject validation)
-- [ ] Service Worker for ML model caching
-- [ ] Reset OTP rate limit back to 30 (Supabase Management API)
+
+## File Inventory (new in this build)
+
+### backend/ (11 files)
+main.py, pipeline.py, hmr_inference.py, smpl_optimizer.py,
+measurement_extractor.py, body_composition.py, depth_processor.py,
+modal_deploy.py, models.py, requirements.txt, README.md
+
+### ios/NateFit/ (14 files)
+NateFitApp.swift, ContentView.swift, Info.plist, README.md
+Views/: LoginView, ClientSelectView, ScanCaptureView, PoseGuideOverlay, ResultsView
+Services/: ARCaptureService, APIClient, AuthService
+Models/: ScanData, ScanResult
+
+### src/ (4 new, 5 modified)
+New: api/scan/process/route.ts, components/3d/AvatarViewer.tsx, components/3d/MeshComparison.tsx, migrations/003
+Modified: types.ts, useScanProcessor.ts, ScanFlow.tsx, ProcessingView.tsx, ScanResults.tsx

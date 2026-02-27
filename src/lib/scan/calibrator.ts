@@ -54,6 +54,9 @@ export function calibrateFromHeight(
 export function validateCalibration(data: CalibrationData): { valid: boolean; reason?: string } {
   // pixels_per_cm should be reasonable for a phone photo
   // At 1080p with person at ~2m distance: roughly 3-8 px/cm
+  if (data.pixels_per_cm == null) {
+    return { valid: false, reason: 'Missing calibration scale' };
+  }
   if (data.pixels_per_cm < 1) {
     return { valid: false, reason: 'Scale too small — person may be too far from camera' };
   }

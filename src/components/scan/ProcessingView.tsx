@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Scan, Activity, Cpu } from 'lucide-react';
+import { Upload, Scan, Cpu, Activity } from 'lucide-react';
 
 interface ProcessingViewProps {
   progress: number;
@@ -9,10 +9,10 @@ interface ProcessingViewProps {
 }
 
 const stages = [
-  { min: 0, max: 25, label: 'Segmenting body...', icon: Scan },
-  { min: 25, max: 50, label: 'Analyzing silhouette...', icon: Activity },
-  { min: 50, max: 80, label: 'Calculating measurements...', icon: Cpu },
-  { min: 80, max: 100, label: 'Computing body composition...', icon: Activity },
+  { min: 0, max: 25, label: 'Uploading images...', icon: Upload },
+  { min: 25, max: 50, label: 'Analyzing with AI...', icon: Scan },
+  { min: 50, max: 80, label: 'Fitting body model...', icon: Cpu },
+  { min: 80, max: 100, label: 'Computing measurements...', icon: Activity },
 ];
 
 export function ProcessingView({ progress, error }: ProcessingViewProps) {

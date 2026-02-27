@@ -142,9 +142,9 @@ export interface CalibrationData {
   weight_kg: number;
   age: number;
   sex: Sex;
-  pixels_per_cm: number;
-  image_width: number;
-  image_height: number;
+  pixels_per_cm?: number;
+  image_width?: number;
+  image_height?: number;
 }
 
 export interface SilhouetteWidth {
@@ -188,6 +188,7 @@ export interface BodyCompositionResult {
   body_fat_pct: number;
   body_fat_navy: number;
   body_fat_cunbae: number;
+  body_fat_smpl?: number;
   lean_mass_kg: number;
   fat_mass_kg: number;
   bmi: number;
@@ -198,6 +199,10 @@ export interface ScanResult {
   circumferences: CircumferenceResult[];
   composition: BodyCompositionResult;
   confidence_score: number;
+  mesh_vertices?: number[];
+  mesh_faces?: number[];
+  scan_tier?: 'lidar' | 'photo';
+  smpl_betas?: number[];
 }
 
 // ============================================================

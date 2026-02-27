@@ -7,7 +7,6 @@ import { CameraCapture } from './CameraCapture';
 import { ProcessingView } from './ProcessingView';
 import { ScanResults } from './ScanResults';
 import { useScanProcessor } from '@/hooks/useScanProcessor';
-import { calibrateFromHeight, validateCalibration } from '@/lib/scan/calibrator';
 import { Button } from '@/components/ui/Button';
 import { ArrowRight, Camera, Scan } from 'lucide-react';
 
@@ -30,16 +29,13 @@ export function ScanFlow({ clientId, onComplete }: ScanFlowProps) {
 
   const { isProcessing, progress, error: processingError, process } = useScanProcessor();
 
-  const frontImageDataRef = { current: null as ImageData | null };
-  const sideImageDataRef = { current: null as ImageData | null };
-
   const setStep = (step: ScanStep) => setState((prev) => ({ ...prev, step }));
 
   const handleCalibration = useCallback(
     (data: Omit<CalibrationData, 'pixels_per_cm' | 'image_width' | 'image_height'>) => {
       setState((prev) => ({
         ...prev,
-        calibration: { ...data, pixels_per_cm: 0, image_width: 0, image_height: 0 },
+        calibration: { ...data },
         step: 'front_capture',
       }));
     },
@@ -47,49 +43,19 @@ export function ScanFlow({ clientId, onComplete }: ScanFlowProps) {
   );
 
   const handleFrontCapture = useCallback(
-    (blob: Blob, keypoints: PoseKeypoints, imageData: ImageData) => {
-      frontImageDataRef.current = imageData;
-
-      // Calibrate using front photo keypoints
-      if (state.calibration) {
-        try {
-          const calibrated = calibrateFromHeight(
-            keypoints,
-            imageData.width,
-            imageData.height,
-            state.calibration.height_cm,
-            state.calibration.weight_kg,
-            state.calibration.age,
-            state.calibration.sex
-          );
-
-          const validation = validateCalibration(calibrated);
-          if (!validation.valid) {
-            setState((prev) => ({ ...prev, error: validation.reason || 'Calibration failed' }));
-            return;
-          }
-
-          setState((prev) => ({
-            ...prev,
-            frontImage: blob,
-            frontKeypoints: keypoints,
-            calibration: calibrated,
-            step: 'front_review',
-          }));
-        } catch (err) {
-          setState((prev) => ({
-            ...prev,
-            error: err instanceof Error ? err.message : 'Calibration failed',
-          }));
-        }
-      }
+    (blob: Blob, keypoints: PoseKeypoints, _imageData: ImageData) => {
+      setState((prev) => ({
+        ...prev,
+        frontImage: blob,
+        frontKeypoints: keypoints,
+        step: 'front_review',
+      }));
     },
-    [state.calibration]
+    []
   );
 
   const handleSideCapture = useCallback(
-    (blob: Blob, keypoints: PoseKeypoints, imageData: ImageData) => {
-      sideImageDataRef.current = imageData;
+    (blob: Blob, keypoints: PoseKeypoints, _imageData: ImageData) => {
       setState((prev) => ({
         ...prev,
         sideImage: blob,
@@ -103,19 +69,14 @@ export function ScanFlow({ clientId, onComplete }: ScanFlowProps) {
   const handleProcess = useCallback(async () => {
     setStep('processing');
 
-    const frontImageData = frontImageDataRef.current;
-    const sideImageData = sideImageDataRef.current;
-
-    if (!frontImageData || !sideImageData || !state.frontKeypoints || !state.sideKeypoints || !state.calibration) {
+    if (!state.frontImage || !state.sideImage || !state.calibration) {
       setState((prev) => ({ ...prev, error: 'Missing scan data' }));
       return;
     }
 
     const result = await process(
-      frontImageData,
-      sideImageData,
-      state.frontKeypoints,
-      state.sideKeypoints,
+      state.frontImage,
+      state.sideImage,
       state.calibration
     );
 

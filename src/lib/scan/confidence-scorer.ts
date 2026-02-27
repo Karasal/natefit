@@ -50,6 +50,7 @@ function keypointVisibilityScore(keypoints: PoseKeypoints): number {
 
 function calibrationScore(calibration: CalibrationData): number {
   const { pixels_per_cm } = calibration;
+  if (pixels_per_cm == null) return 0.5;
   // Ideal range: 3-10 px/cm for typical phone photos
   if (pixels_per_cm >= 3 && pixels_per_cm <= 10) return 1;
   if (pixels_per_cm >= 2 && pixels_per_cm <= 15) return 0.8;
